@@ -132,6 +132,42 @@
     box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:9}
   .wa.on{display:flex}
   .empty{text-align:center;color:var(--mut);padding:40px 0}
+
+  /* desktop */
+  @media (hover:hover){
+    .cta:hover{opacity:.88}
+    .stores a:hover b{text-decoration:underline;text-underline-offset:3px}
+    nav button:not(.on):hover{border-color:var(--soft)}
+  }
+  @media (min-width:960px){
+    .wrap{max-width:1160px;padding:0 40px}
+    header{padding:72px 0 12px;display:grid;grid-template-columns:1.1fr 1fr;column-gap:56px;align-items:end}
+    .brand{grid-column:1/-1}
+    h1{font-size:46px;margin:0}
+    .lead{font-size:17px}
+    .upd{grid-column:2;margin-top:10px}
+    nav{margin:28px -40px 0;padding:14px 40px}
+    nav button{font-size:15px;padding:9px 18px}
+    main{gap:24px;padding-top:16px}
+    .p{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);padding:0;border-radius:22px}
+    .a{padding:28px 32px 32px;border-right:1px solid var(--line)}
+    .b{padding:28px 32px 32px}
+    .hero{margin:-28px -32px 22px;height:300px;border-radius:22px 0 0 0}
+    .hero img{max-height:250px}
+    h2{font-size:26px}
+    .sum{font-size:15px}
+    .price b{font-size:34px}
+    .chart svg{height:110px}
+    .b .blk:first-child{margin-top:0;padding-top:0;border-top:0}
+    .blk li{font-size:15px}
+    .guide{margin-top:48px}
+    .guide h2{font-size:28px}
+    .guide dl{display:grid;grid-template-columns:1fr 1fr;column-gap:40px;padding:8px 32px}
+    .guide div:nth-last-child(2):nth-child(odd){border:0}
+    .legend{display:flex;gap:28px}
+    footer{padding-bottom:60px}
+    .wa{left:auto;right:32px;transform:none;width:auto;padding:14px 24px}
+  }
 </style>
 </head>
 <body>
@@ -202,9 +238,21 @@ function status(m){
   return h;
 }
 
+const DAY=864e5, dnum=d=>Date.parse(d+'T12:00:00');
+// Sem histórico longo (modelo fora do Zoom): mostra os últimos 30 dias
+function series(m){
+  let e=Object.entries(m.historico||{}).sort((a,b)=>a[0]<b[0]?-1:1);
+  if(!e.length) return {e, curto:true, s:m.stats};
+  const fim=dnum(e[e.length-1][0]), curto=(fim-dnum(e[0][0]))/DAY<60;
+  if(!curto) return {e, curto:false, s:m.stats};
+  e=e.filter(([d])=>fim-dnum(d)<=30*DAY);
+  const v=e.map(x=>x[1].p), mn=Math.min(...v), iMin=v.lastIndexOf(mn);
+  return {e, curto:true, s:{...m.stats, minimo:mn, maximo:Math.max(...v), media:v.reduce((a,b)=>a+b,0)/v.length,
+    minimo_data:e[iMin][0], minimo_loja:e[iMin][1].loja}};
+}
 function chart(m){
-  const e=Object.entries(m.historico||{}), s=m.stats;
-  if(e.length<2) return `<div class="hist"><h3>Histórico de preço</h3><p class="sum">Ainda coletando dados deste modelo. O gráfico aparece nos próximos dias.</p></div>`;
+  const {e, curto, s}=series(m), per=curto?'30 dias':`${s.meses} meses`;
+  if(e.length<2) return `<div class="hist"><h3>Preço nos últimos 30 dias</h3><p class="sum">Este modelo ainda não tem histórico nos comparadores. Começamos a acompanhar em ${dshort(e[0]?.[0])}, e o gráfico se forma com as próximas coletas.</p></div>`;
   const v=e.map(x=>x[1].p), mn=Math.min(...v), mx=Math.max(...v), W=300, H=110, T=8, B=8;
   const X=i=>i/(v.length-1)*W, Y=y=>T+(1-(y-mn)/((mx-mn)||1))*(H-T-B);
   const pts=v.map((y,i)=>`${X(i).toFixed(1)},${Y(y).toFixed(1)}`).join(' ');
@@ -212,11 +260,12 @@ function chart(m){
   const col=(ST[s.cor]||['#18181b'])[0];
   // marcas de mês no eixo
   const months=[]; let prev='';
-  e.forEach(([d],i)=>{const k=d.slice(0,7); if(k!==prev){prev=k; if(i>0) months.push([i,MES[+d.slice(5,7)-1]]);}});
+  if(curto){ months.push([0,dshort(e[0][0])],[last,dshort(e[last][0])]); }
+  else e.forEach(([d],i)=>{const k=d.slice(0,7); if(k!==prev){prev=k; if(i>0) months.push([i,MES[+d.slice(5,7)-1]]);}});
   const pct=i=>(X(i)/W*100).toFixed(2)+'%';
   const mk=(i,y,c,cls='')=>`<i class="pt ${cls}" style="left:${pct(i)};top:${Y(y)}px;--c:${c}"></i>`;
   return `<div class="hist">
-    <div class="hhead"><h3>Preço nos últimos ${s.meses} meses</h3><span class="val">Toque para ver cada dia</span></div>
+    <div class="hhead"><h3>Preço nos últimos ${per}</h3><span class="val">Toque para ver cada dia</span></div>
     <div class="chart" data-id="${m.id}">
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
         <defs><linearGradient id="g-${m.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".16"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
@@ -233,7 +282,7 @@ function chart(m){
     </div>
     <div class="stats">
       <span><em>Menor</em><b style="color:var(--good)">${brl0(s.minimo)}</b>${dshort(s.minimo_data)}${s.minimo_loja?' · '+esc(s.minimo_loja):''}</span>
-      <span style="text-align:center"><em>Média</em><b>${brl0(s.media)}</b>${s.meses} meses</span>
+      <span style="text-align:center"><em>Média</em><b>${brl0(s.media)}</b>${per}</span>
       <span style="text-align:right"><em>Maior</em><b>${brl0(s.maximo)}</b>no período</span>
     </div>
   </div>`;
@@ -244,7 +293,7 @@ function card(m){
   const others=(m.ofertas||[]).slice(0,5).map((o,i)=>`<a href="${esc(o.url)}" target="_blank" rel="noopener"><span>${esc(o.loja)}${i===0?' <em class="tag">menor</em>':''}</span><span class="r"><b>${brl(o.preco)}</b>${o.parcelas?`<small>${o.parcelas}x de ${brl(o.valor_parcela)}</small>`:''}</span></a>`).join('');
   const more=Object.entries(m.links_busca||{}).filter(([k])=>!(m.ofertas||[]).some(o=>o.loja===k)).slice(0,3)
     .map(([k,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(k)}</a>`).join('');
-  return `<article class="p">
+  return `<article class="p"><div class="a">
     ${(m.foto||m.imagem)?`<div class="hero"><img loading="lazy" src="${esc(m.foto||m.imagem)}" alt="${esc(m.nome)}">${s.estrela||s.cor==='verde'?`<span class="flag">${s.cor==='verde'?'Ótimo preço':'Menor preço'}</span>`:''}</div>`:''}
     <p class="cat">${esc(m.categoria)}</p><h2>${esc(m.nome)}</h2><p class="sum">${esc(m.resumo)}</p>
     ${b?`<div class="price"><b>${brl(b.preco)}</b><span>na ${esc(b.loja)}</span></div>
@@ -253,11 +302,12 @@ function card(m){
       ${chart(m)}
       <a class="cta" href="${esc(b.url)}" target="_blank" rel="noopener">Ver na ${esc(b.loja)}</a>`
      :`<p class="sum" style="margin-top:16px">Sem preço disponível agora.</p>`}
+    </div><div class="b">
     <div class="blk"><h3>Onde usar</h3><div class="places">${m.locais.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
       ${m.indicado_para?`<p class="tip"><b>Indicado para:</b> ${esc(m.indicado_para)}</p>`:''}</div>
     <div class="blk"><h3>Destaques</h3><ul>${m.beneficios.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
     ${others||more?`<div class="blk stores"><h3>Preço por loja</h3>${others}${more?`<div class="more">Ver também: ${more}</div>`:''}</div>`:''}
-  </article>`;
+  </div></article>`;
 }
 
 let filtro='todos';
@@ -269,7 +319,7 @@ function render(){
 }
 function wire(){
   document.querySelectorAll('.chart').forEach(el=>{
-    const m=DATA.modelos.find(x=>x.id===el.dataset.id), e=Object.entries(m.historico), svg=el.querySelector('svg'),
+    const m=DATA.modelos.find(x=>x.id===el.dataset.id), e=series(m).e, svg=el.querySelector('svg'),
           cur=el.querySelector('.cur'), dot=el.querySelector('.pt.cursor'), val=el.closest('.hist').querySelector('.val');
     const v=e.map(x=>x[1].p), mn=Math.min(...v), mx=Math.max(...v), W=300, H=110, T=8, B=8;
     const show=ev=>{
