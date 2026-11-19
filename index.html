@@ -64,6 +64,19 @@
   details{margin-top:6px;border-top:1px solid var(--line)}
   summary{list-style:none;cursor:pointer;padding:14px 0 2px;font-size:14px;color:var(--mut);display:flex;justify-content:space-between}
   summary::-webkit-details-marker{display:none}
+  .hist{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .hhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+  .hist h3{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);margin:0}
+  .hist .val{font-size:12.5px;color:var(--soft);text-align:right}
+  .hist .val b{color:var(--ink);font-weight:600}
+  .chart{position:relative;touch-action:pan-y;padding-bottom:20px;cursor:crosshair}
+  .chart svg{display:block;width:100%;height:110px;overflow:visible}
+  .pt{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+  .pt.cursor{--c:var(--ink)}
+  .avg{position:absolute;right:0;transform:translateY(-120%);font-size:10.5px;color:var(--soft);background:var(--card);padding:0 4px 0 0}
+  .axis{position:absolute;left:0;right:0;bottom:0;height:16px}
+  .axis span{position:absolute;transform:translateX(-50%);font-size:10.5px;color:var(--soft)}
+  .stats em{display:block;font-style:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft)}
   summary::after{content:"+";font-size:18px;line-height:1;color:var(--soft)}
   details[open] summary::after{content:"–"}
   .blk{margin-top:16px}
@@ -81,11 +94,7 @@
   .stores .more{font-size:13px;color:var(--mut);margin-top:8px}
   .stores .more a{display:inline;border:0;padding:0;color:var(--mut);text-decoration:underline;text-underline-offset:2px;margin-right:12px}
 
-  .chart{position:relative;touch-action:pan-y}
-  .chart svg{display:block;width:100%;height:96px}
-  .chart .val{font-size:13px;color:var(--mut);height:18px;margin-bottom:4px}
-  .chart .val b{color:var(--ink);font-weight:600}
-  .stats{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:6px}
+  .stats{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);margin-top:10px}
   .stats b{display:block;color:var(--ink);font-weight:600;font-size:14px}
 
   /* guia e rodapé */
@@ -156,9 +165,9 @@ const dshort = d => { if(!d) return ''; const [y,m,dd]=d.split('-'); return `${+
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const ST = {
-  verde:   ['var(--good)','Ótimo preço'],
-  amarelo: ['var(--mid)','Preço normal'],
-  vermelho:['var(--bad)','Acima da média'],
+  verde:   ['#2f7a4f','Ótimo preço'],
+  amarelo: ['#a8741a','Preço normal'],
+  vermelho:['#b0463d','Acima da média'],
 };
 const isDeal = m => !!m.melhor && (m.stats.cor==='verde' || m.stats.estrela);
 const score = m => (m.stats.cor==='verde'?4:0) + (m.stats.estrela?2:0);
@@ -179,26 +188,40 @@ function status(m){
 }
 
 function chart(m){
-  const e=Object.entries(m.historico||{}); if(e.length<2) return '';
-  const s=m.stats, v=e.map(x=>x[1].p), mn=Math.min(...v), mx=Math.max(...v), W=300, H=96, P=4;
-  const X=i=>P+i/(v.length-1)*(W-2*P), Y=y=>H-P-((y-mn)/((mx-mn)||1))*(H-2*P);
+  const e=Object.entries(m.historico||{}), s=m.stats;
+  if(e.length<2) return `<div class="hist"><h3>Histórico de preço</h3><p class="sum">Ainda coletando dados deste modelo. O gráfico aparece nos próximos dias.</p></div>`;
+  const v=e.map(x=>x[1].p), mn=Math.min(...v), mx=Math.max(...v), W=300, H=110, T=8, B=8;
+  const X=i=>i/(v.length-1)*W, Y=y=>T+(1-(y-mn)/((mx-mn)||1))*(H-T-B);
   const pts=v.map((y,i)=>`${X(i).toFixed(1)},${Y(y).toFixed(1)}`).join(' ');
-  const iMin=v.indexOf(mn);
-  return `<div class="blk"><h3>Preço nos últimos ${s.meses} meses</h3>
+  const iMin=v.lastIndexOf(mn), last=v.length-1;
+  const col=(ST[s.cor]||['#18181b'])[0];
+  // marcas de mês no eixo
+  const months=[]; let prev='';
+  e.forEach(([d],i)=>{const k=d.slice(0,7); if(k!==prev){prev=k; if(i>0) months.push([i,MES[+d.slice(5,7)-1]]);}});
+  const pct=i=>(X(i)/W*100).toFixed(2)+'%';
+  const mk=(i,y,c,cls='')=>`<i class="pt ${cls}" style="left:${pct(i)};top:${Y(y)}px;--c:${c}"></i>`;
+  return `<div class="hist">
+    <div class="hhead"><h3>Preço nos últimos ${s.meses} meses</h3><span class="val">Toque para ver cada dia</span></div>
     <div class="chart" data-id="${m.id}">
-      <div class="val">Toque no gráfico para ver cada dia</div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        ${s.media?`<line x1="0" x2="${W}" y1="${Y(s.media)}" y2="${Y(s.media)}" stroke="#d6d3cc" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>`:''}
-        <polyline fill="none" stroke="#18181b" stroke-width="1.6" stroke-linejoin="round" points="${pts}" vector-effect="non-scaling-stroke"/>
-        <line class="cur" y1="0" y2="${H}" stroke="#18181b" stroke-opacity=".18" vector-effect="non-scaling-stroke" style="display:none"/>
+        <defs><linearGradient id="g-${m.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".16"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+        <polygon points="0,${H} ${pts} ${W},${H}" fill="url(#g-${m.id})"/>
+        ${s.media?`<line x1="0" x2="${W}" y1="${Y(s.media)}" y2="${Y(s.media)}" stroke="#bdb9b0" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>`:''}
+        <polyline fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" points="${pts}" vector-effect="non-scaling-stroke"/>
+        <line class="cur" y1="0" y2="${H}" stroke="#18181b" stroke-opacity=".25" vector-effect="non-scaling-stroke" style="display:none"/>
       </svg>
-      <i class="mk" style="position:absolute;width:8px;height:8px;border-radius:50%;background:var(--good);left:calc(${X(iMin)/W*100}% - 4px);top:${18+4+Y(mn)-4}px"></i>
+      ${s.media?`<span class="avg" style="top:${Y(s.media)}px">média ${brl0(s.media)}</span>`:''}
+      ${mk(iMin,mn,'var(--good)')}
+      ${mk(last,v[last],col,'now')}
+      <i class="pt cursor" style="display:none"></i>
+      <div class="axis">${months.map(([i,t])=>`<span style="left:${pct(i)}">${t}</span>`).join('')}</div>
     </div>
     <div class="stats">
-      <span>Mínimo<b>${brl0(s.minimo)}</b>${dshort(s.minimo_data)}</span>
-      <span style="text-align:center">Média<b>${brl0(s.media)}</b>${s.meses} meses</span>
-      <span style="text-align:right">Máximo<b>${brl0(s.maximo)}</b>no período</span>
-    </div></div>`;
+      <span><em>Menor</em><b style="color:var(--good)">${brl0(s.minimo)}</b>${dshort(s.minimo_data)}${s.minimo_loja?' · '+esc(s.minimo_loja):''}</span>
+      <span style="text-align:center"><em>Média</em><b>${brl0(s.media)}</b>${s.meses} meses</span>
+      <span style="text-align:right"><em>Maior</em><b>${brl0(s.maximo)}</b>no período</span>
+    </div>
+  </div>`;
 }
 
 function card(m){
@@ -214,15 +237,15 @@ function card(m){
     ${b?`<div class="price"><b>${brl(b.preco)}</b><span>na ${esc(b.loja)}</span></div>
       ${b.parcelas?`<div class="inst">ou ${b.parcelas}x de ${brl(b.valor_parcela)}</div>`:''}
       ${status(m)}
+      ${chart(m)}
       <a class="cta" href="${esc(b.url)}" target="_blank" rel="noopener">Ver na ${esc(b.loja)}</a>`
      :`<p class="sum" style="margin-top:16px">Sem preço disponível agora.</p>`}
     <details>
-      <summary>Detalhes, lojas e histórico</summary>
+      <summary>Detalhes e preço por loja</summary>
       <div class="blk"><h3>Destaques</h3><ul>${m.beneficios.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
       <div class="blk"><h3>Onde usar</h3><div class="places">${m.locais.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
         <p class="tip">${esc(m.indicado_para)}</p></div>
       ${others||more?`<div class="blk stores"><h3>Preço por loja</h3>${others}${more?`<div class="more">Ver também: ${more}</div>`:''}</div>`:''}
-      ${chart(m)}
     </details>
   </article>`;
 }
@@ -237,14 +260,17 @@ function render(){
 function wire(){
   document.querySelectorAll('.chart').forEach(el=>{
     const m=DATA.modelos.find(x=>x.id===el.dataset.id), e=Object.entries(m.historico), svg=el.querySelector('svg'),
-          cur=el.querySelector('.cur'), val=el.querySelector('.val'), W=300, P=4;
+          cur=el.querySelector('.cur'), dot=el.querySelector('.pt.cursor'), val=el.closest('.hist').querySelector('.val');
+    const v=e.map(x=>x[1].p), mn=Math.min(...v), mx=Math.max(...v), W=300, H=110, T=8, B=8;
     const show=ev=>{
       const r=svg.getBoundingClientRect(), fx=Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width));
-      const i=Math.round(fx*(e.length-1)), x=P+i/(e.length-1)*(W-2*P);
+      const i=Math.round(fx*(e.length-1)), x=i/(e.length-1)*W, y=T+(1-(v[i]-mn)/((mx-mn)||1))*(H-T-B);
       cur.setAttribute('x1',x);cur.setAttribute('x2',x);cur.style.display='';
-      val.innerHTML=`<b>${brl(e[i][1].p)}</b> em ${dshort(e[i][0])}${e[i][1].loja?' · '+esc(e[i][1].loja):''}`;
+      dot.style.left=(x/W*100)+'%';dot.style.top=y+'px';dot.style.display='';
+      val.innerHTML=`<b>${brl(v[i])}</b> em ${dshort(e[i][0])}${e[i][1].loja?' · '+esc(e[i][1].loja):''}`;
     };
     el.onpointerdown=el.onpointermove=show;
+    el.onpointerleave=ev=>{ if(ev.pointerType==='mouse'){cur.style.display='none';dot.style.display='none';val.textContent='Toque para ver cada dia';} };
   });
 }
 
