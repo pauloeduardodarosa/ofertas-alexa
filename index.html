@@ -89,7 +89,12 @@
   .axis{position:absolute;left:0;right:0;bottom:0;height:16px}
   .axis span{position:absolute;transform:translateX(-50%);font-size:10.5px;color:var(--soft)}
   .stats em{display:block;font-style:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft)}
-  .blk{margin-top:16px}
+  .blk{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .tip b{color:var(--ink);font-weight:600}
+  .stores a{align-items:center}
+  .stores .r{text-align:right}
+  .stores small{display:block;font-size:12px;color:var(--soft)}
+  .stores .tag{font-style:normal;font-size:11px;font-weight:600;color:var(--good);background:#e9f3ec;padding:2px 7px;border-radius:999px;margin-left:6px}
   .blk h3{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);margin:0 0 8px}
   .blk ul{margin:0;padding:0;list-style:none}
   .blk li{font-size:14.5px;padding:3px 0 3px 16px;position:relative}
@@ -236,7 +241,7 @@ function chart(m){
 
 function card(m){
   const b=m.melhor, s=m.stats;
-  const others=(m.ofertas||[]).slice(0,5).map(o=>`<a href="${esc(o.url)}" target="_blank" rel="noopener"><span>${esc(o.loja)}</span><b>${brl(o.preco)}</b></a>`).join('');
+  const others=(m.ofertas||[]).slice(0,5).map((o,i)=>`<a href="${esc(o.url)}" target="_blank" rel="noopener"><span>${esc(o.loja)}${i===0?' <em class="tag">menor</em>':''}</span><span class="r"><b>${brl(o.preco)}</b>${o.parcelas?`<small>${o.parcelas}x de ${brl(o.valor_parcela)}</small>`:''}</span></a>`).join('');
   const more=Object.entries(m.links_busca||{}).filter(([k])=>!(m.ofertas||[]).some(o=>o.loja===k)).slice(0,3)
     .map(([k,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(k)}</a>`).join('');
   return `<article class="p">
@@ -248,13 +253,10 @@ function card(m){
       ${chart(m)}
       <a class="cta" href="${esc(b.url)}" target="_blank" rel="noopener">Ver na ${esc(b.loja)}</a>`
      :`<p class="sum" style="margin-top:16px">Sem preço disponível agora.</p>`}
-    <details>
-      <summary><span class="lbl-closed">Ver onde usar, benefícios e lojas</span><span class="lbl-open">Fechar detalhes</span></summary>
-      <div class="blk"><h3>Destaques</h3><ul>${m.beneficios.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
-      <div class="blk"><h3>Onde usar</h3><div class="places">${m.locais.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-        <p class="tip">${esc(m.indicado_para)}</p></div>
-      ${others||more?`<div class="blk stores"><h3>Preço por loja</h3>${others}${more?`<div class="more">Ver também: ${more}</div>`:''}</div>`:''}
-    </details>
+    <div class="blk"><h3>Onde usar</h3><div class="places">${m.locais.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+      ${m.indicado_para?`<p class="tip"><b>Indicado para:</b> ${esc(m.indicado_para)}</p>`:''}</div>
+    <div class="blk"><h3>Destaques</h3><ul>${m.beneficios.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+    ${others||more?`<div class="blk stores"><h3>Preço por loja</h3>${others}${more?`<div class="more">Ver também: ${more}</div>`:''}</div>`:''}
   </article>`;
 }
 
